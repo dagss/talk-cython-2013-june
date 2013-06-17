@@ -224,222 +224,72 @@ basicstyle=\footnotesize \tt,       % the size of the fonts that are used for th
 
 
 \frame{
-  \frametitle{Faster code: Adding types}
-
-\uncover<+->{
-Variables can be typed with a C-like notation:
-\testcode
+  \begin{center}
+    (demo on ways to build)
+  \end{center}
 }
 
-\begin{itemize}
-\item<+-> {\bf Types are optional,} and even slightly discouraged. Always check that you have a good reason for using them.
-\item<+-> All C types are available
-\item<+-> Conversion to and from Python objects happen automatically.
-\item<+-> Note that Python {\tt float} and {\tt int} and C {\tt float} and {\tt int}
-are different things.
-\end{itemize}
+\frame{
+  \begin{center}
+    (demo on speeding up image blur)
+  \end{center}
+}
+
+\frame{
+  \begin{center}
+    (demo on calling libpng)
+  \end{center}
+}
+
+
+\frame{
+  \frametitle{Using Cython as a language on its own}
+In addition to Python and C, Cython has its own features:
+  \begin{itemize}
+    \item<+-> Compile-time inclusion of other Cython code using {\tt pxd}-files
+      and {\tt cimport}
+    \item<+-> Avoid overhead of Python function calls with {\tt cdef}-functions
+    \item<+-> Avoid overhead of Python classes with {\tt cdef}-classes
+  \end{itemize}
 }
 
 \frame[containsverbatim]{
-  \frametitle{Faster code: cdef functions}
-  Python function calls can be expensive -- in Cython doubly so because
-  one might need to convert to and from Python objects to do the call.
+  \frametitle{Cython syntax: cdef functions}
+  Calling a {\tt def} function a) has a large performance penalty,
+  can only accept Python-compatible arguments (no pointers).
+
 
 ~
 
-Therefore Cython provides a syntax for declaring a Cython-only function:
+Syntax for declaring a Cython-only function:
 \lstset{emph={cdef, cpdef, double},emphstyle=\color{blue}} 
 \begin{lstlisting}
-cdef double f(double x): return x**3 + 2*x**2
+cdef double f(double x) except *:
+    return x**3 + 2*x**2
 \end{lstlisting}
 
 ~
 
-The downside is that the function is not available from Python-space.
-Using {\tt cpdef} makes a fast version available to Cython and a slower one
-to Python:
+Not available from Python-space. Use {\tt cpdef} to make a fast version
+available to Cython and a slower one to Python:
 \begin{lstlisting}
-cpdef double f(double x): return x**3 + 2*x**2
+cpdef double f(double x) except *:
+    return x**3 + 2*x**2
 \end{lstlisting}
 
 }
 
 
 \frame[containsverbatim]{
-
-\begin{exercise}{Adding types}
-Add types etc. to speed up the following code (name the file
-{\tt integrate.pyx} for future reference):
-\begin{lstlisting}
-from __future__ import division
-def f(x): return 1/(x**3 + 2*x**2)
-def integrate_f(a, b, N):
-    s = 0
-    dx = (b-a)/N
-    for i in range(N):
-        s += f(a+i*dx)
-    return s * dx
-\end{lstlisting}
-\begin{itemize}
-\item Use the {\tt double} type for function values and domain, and
-{\tt ssize\_t} for integers.
-
-\item Expect about 100x speedup. It is easy to miss typing a variable;
-experiment and see what happens to speed then.
-
-\item Use the \verb@-a@ switch to the \verb@cython@ command-line tool;
-the generated view of the code explains the speed differences
-
-\item Experiment with letting \verb@f@ be declared \verb@cdef@ vs. \verb@cpdef@.
-\end{itemize}
-\end{exercise}
-}
-
-
-\frame[containsverbatim]{ \frametitle{Raising exceptions from {\tt cdef} functions}
-For speed reasons, some manual exception declarations must be done
-on {\tt cdef} functions capable of raising exceptions.
-
-~
-
-You can always add "{\tt except *}" and not worry about this though.
-\begin{block}{}
-\begin{lstlisting}
-cdef int is_monday() except -2:
-    # Must never return -2 explicitly!
-    return time.localtime().tm_wday == 0
-
-cdef int divide(int a, int b) except? 45345:
-    # If result is 45345, make an additional check
-    return a // b # possible ZeroDivisionError
-
-cdef int divide(int a, int b) except *:
-    # I'd rather not bother, just ask Python
-    return a // b
-\end{lstlisting}
-\end{block}
-}
-
-
-\section{Calling C functions}
-
-\frame[containsverbatim]{
-  \frametitle{Calling C functions}
-One {\em can} do ``{\tt from math import sin}'' to get
-Python's {\tt sin} function. Calling C's {\tt sin} function
-is faster though:
-\begin{lstlisting}
-cdef extern from "math.h":
-    double sin(double)
-# or:
-# from libc.math cimport sin
-
-cdef double f(double x):
-    return sin(x * x)
-\end{lstlisting}
-
-Note that one must ``redeclare'' the function from {\tt math.h}
-for the benefit of Cython. In the C compilation stage, only
-the declaration in {\tt math.h} is seen.
-}
-
-\frame[containsverbatim]{
-  \frametitle{Calling C functions}
-When calling C functions, one must take care to link in the appropriate
-libraries. In {\tt setup.py}:
-
-\lstset{emph={libraries},emphstyle=\color{blue}} 
-\begin{lstlisting}
-...
-    Extension("integrate", ["integrate.pyx"],
-              libraries=["m"]) # Unix-like specific
-...
-\end{lstlisting}
-}
-
-\frame[containsverbatim]{
-
-\begin{exercise}{Call a C function}
-Just make sure you now know how to calculate $\int_a^b \textrm{sin}(x^2) \; \textrm{d}x$.
-
-Check the speed difference between calling Python's \texttt{sin} and C's \texttt{sin}.
-
-\end{exercise}
-
-
-}
-
-\section{NumPy and Cython}
-
-\frame{ \frametitle{NumPy and Cython}
-
-\uncover<+->{
-  \begin{itemize}
-  \item Cython provides fast access to NumPy arrays
-    \begin{itemize}
-    \item As long as datatype and dimensionality of all arrays is known at compile-time!
-    \end{itemize}
-  \item 1000x speedup over pure Python loops in extreme cases
-  \end{itemize}
-}
-
-~
-
-\uncover<+->{
-Some usecases:
-
-\begin{itemize}
-\item Make manual for-loop-style programming feasible
-\item<+-> Optimize an array expression like \texttt{1.2 * a + b + np.sqrt(c)}
-  \begin{itemize}
-  \item Helps because it reduces memory bandwidth
-  \item \texttt{numexpr} and \texttt{Theano} solves the same problem
-  \end{itemize}
-\item<+-> Push data between NumPy arrays and C/C++/Fortran libraries
-\end{itemize}
-}
-
-}
-
-\frame[containsverbatim]{
-
-\begin{exercise}{Optimize pixel-domain convolution}
-Check out the \texttt{integrate} example and speed it up.
-
-\begin{itemize}
- \item Use the \texttt{float} type (32-bit floating point data) for values,
-   \texttt{ssize\_t} for indices
- \item NumPy arrays should be typed:
-\begin{verbatim}
-import numpy as np
-cimport numpy as cnp
-cnp.import_array()
-def convolve2d(cnp.ndarray[float, ndim=2] f, ...)
-\end{verbatim}
-
-  \item Headers needed for the C compiler as well.
-    In \texttt{setup.py}:
-\begin{verbatim}
-Extension("cy_convolve", ["cy_convolve.pyx"],
-          include_dirs=[np.get_include()])
-\end{verbatim}
-\end{itemize}
-\end{exercise}
-
-}
-
-
-\frame[containsverbatim]{
-  \frametitle{Object-oriented programming}
+  \frametitle{Classes}
   Cython has two kinds of classes:
   \begin{itemize}
-    \item Normal Python classes. These are exactly like Python's classes.
-    \item Extension types/``cdef classes''
+    \item {\tt class MyClass}: Exactly like in Python
+    \item {\tt cdef class MyClass}:
       \begin{itemize}
 	\item Store typed attributes (avoid converting to/from Python object)
-	\item Faster method calls when called from Cython
-        \item Between different Cython modules, \texttt{.pxd}-files are needed
-          to export the cdef class interface
+	\item Faster method calls when called from Cython and declaration known
+          compile-time
       \end{itemize}
   \end{itemize}
 \begin{lstlisting}
@@ -451,9 +301,8 @@ cdef class MyClass:
 
 ~
 
-Normal Python classes (also in pure Python code)
-can inherit from cdef classes, but not the other way around.
-}
+Normal Python classes can inherit from cdef classes, but not the other
+way around.  }
 
 \frame[containsverbatim]{
   \frametitle{cdef class polymorphism}
@@ -479,8 +328,7 @@ typed.some_cpdef_method() # fast
   Attributes are different from regular classes:
   \begin{itemize}
     \item All attributes must be pre-declared at compile-time
-    \item Attributes are by default only accessible from Cython (typed access)
-    \item Properties can be declared to make the attribute accessible from Python-space
+    \item Declare accessability
   \end{itemize}
 
 ~
@@ -501,16 +349,9 @@ cdef class SineWave(DoubleFunction):
   \frametitle{cdef class caveats}
   Special methods have some differences from regular classes:
   \begin{itemize}
-    \item<+-> {\tt \_\_cinit\_\_} is, unlike {\tt \_\_init\_\_}, guaranteed to be
-    called exactly once per object
-    \begin{itemize}
-      \item {\tt \_\_init\_\_} is available as well
-      \item Take care: Might be called before the Python object has
-	been fully constructed!
-      \item Rationale: Improper initialization of C attributes can cause leaks or crashes.
-    \end{itemize}
-    \item<+-> {\tt \_\_dealloc\_\_} is called when the object is deallocated
-    \item<+-> Arithmetic operators, pickling etc. are different as well
+    \item<+-> {\tt \_\_cinit\_\_} and {\tt \_\_dealloc\_\_} for allocating/freeing
+      C data structures belonging to the object
+    \item<+-> Arithmetic operators, pickling etc. are different
   \end{itemize}
 }
 
@@ -541,45 +382,19 @@ def func():
 
 }
 
-\frame[containsverbatim]{
 
-  \begin{exercise}{Using cdef classes in the integration example}
-    Until now, the function to integrate has been hardcoded.
-    Let's use cdef classes to create callbacks without too much of a penalty.
+\frame{
+  \frametitle{My own opinions}
+\begin{itemize}
+\item<+-> Cython is not elegant but it does many jobs well.
+\item<+-> Cython is a supplement. {\bf Do not} use Cython as
+  your main programming language.
+\item<+-> For speed: Jump on to Numba (scientific/number crunching) or
+  PyPy (other domains) after making sure they will work for you.
+\end{itemize}
 
-\end{exercise}
+
 }
 
-
-% \begin{frame}[containsverbatim]
-%   \frametitle{What does Cython look like in the future? (we hope...)}
-
-%   \begin{itemize}
-%   \item Fused types:
-% \begin{verbatim}
-% def compute_foo(np.ndarray[floating_t] a): ...
-% \end{verbatim}
-%   \end{itemize}
-% \end{frame}
-
-% \begin{frame}[containsverbatim]
-%   \frametitle{What does Cython look like in the future? (we hope...)}
-
-%   \begin{itemize}
-%   \item Fused types:
-% \begin{verbatim}
-% def compute_foo(np.ndarray[floating_t] a): ...
-% \end{verbatim}
-%   \item Typed memoryviews.
-%     \begin{itemize}
-%     \item Rather than {\em optimize memory access}, we 
-%     \end{itemize}
-% \begin{verbatim}
-% def compute_foo(double[:] a, double[:] b):
-%     cdef double[:] c = a * a + b
-%     ...
-% \end{verbatim}
-%   \end{itemize}
-% \end{frame}
 
 \end{document}
