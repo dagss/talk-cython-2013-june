@@ -1,0 +1,14 @@
+*.o
+*.so
+*~
+*.c
+
+/slides/auto
+/slides/*.aux
+/slides/*.nav
+/slides/*.toc
+/slides/*.snm
+/slides/*.pdf
+/slides/*.log
+/slides/*.out
+
