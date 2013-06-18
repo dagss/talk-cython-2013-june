@@ -113,5 +113,5 @@ def write_grayscale_image_to_png(filename, uint8_t[:,::1] array):
     finally:
         if fp != NULL:
             fclose(fp)
-        if row_pointers == NULL:
+        if row_pointers != NULL:
             free(row_pointers)
