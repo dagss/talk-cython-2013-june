@@ -111,6 +111,9 @@ def write_grayscale_image_to_png(filename, uint8_t[:,::1] array):
             raise LibPngError("png_write_end failed")
         png_write_end(ctx, NULL);
     finally:
+        # EXERCIZE FOR THE READER:
+        # Free PNG structures as well
+        
         if fp != NULL:
             fclose(fp)
         if row_pointers != NULL:
